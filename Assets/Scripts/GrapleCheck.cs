@@ -13,11 +13,11 @@ public class GrapleCheck : MonoBehaviour
         hookSystem = player.GetComponent<HookSystem>();
 
     }
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.gameObject.CompareTag("HookObject"))
         {
-            hookSystem.AttachGraple(collision);
+            hookSystem.AttachGraple(collision.GetComponent<Rigidbody2D>());
             hookSystem.hookIsConnected = true;
         }
     }

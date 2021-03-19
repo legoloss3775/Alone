@@ -22,6 +22,7 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 movementDirection;
     private int gravityScale;
 
+    public bool isOnGround = false;
     public bool isGrapleShoot = false;
     public bool isFlying = false;
     public bool isMoving = false;
@@ -29,7 +30,6 @@ public class PlayerMovement : MonoBehaviour
     public bool isHooked = false;
     private void Awake()
     {
-        //Проверка на наличие компонентов в скрипте
         player_rb = GetComponent<Rigidbody2D>();
         player_anim = GetComponent<Animator>();
 
@@ -39,53 +39,114 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         Animate();
-        Movement();
-
         CameraZoomOut();
-        //Move();
     }
     private void FixedUpdate()
     {
-      
-    }
-    private void Movement()
-    {
-        movementDirection = new Vector2(Input.GetAxis("Horizontal"), 0);
-        movementDirection.Normalize();
+        Vector2 boxRight = new Vector2(GetComponent<BoxCollider2D>().bounds.max.x + 0.0001f, GetComponent<BoxCollider2D>().bounds.min.y);
+        Vector2 boxLeft = new Vector2(GetComponent<BoxCollider2D>().bounds.min.x - 0.0001f, GetComponent<BoxCollider2D>().bounds.min.y);
+        Vector2 boxUp = new Vector2(GetComponent<BoxCollider2D>().bounds.center.x, GetComponent<BoxCollider2D>().bounds.max.y + 0.001f);
 
         if (Input.GetKey(KeyCode.D))
         {
-            if (player_rb.velocity.x <= 7f)
-                player_rb.velocity += new Vector2(0.25f, 0);
-            
-            isMoving = true;
-            GetComponent<SpriteRenderer>().flipX = false;
+            if (!Physics2D.Raycast(boxRight, Vector2.right, 0.1f) && !isHooked)
+            {
+                if (player_rb.velocity.x <= 7f)
+                    player_rb.velocity += new Vector2(0.25f, 0);
+
+                isMoving = true;
+                GetComponent<SpriteRenderer>().flipX = false;
+            }
+            else if (isHooked)
+            {
+                if (player_rb.velocity.x <= 7f)
+                    player_rb.velocity += new Vector2(0.25f, 0);
+
+                isMoving = true;
+                GetComponent<SpriteRenderer>().flipX = false;
+            }
         }
         else if (Input.GetKey(KeyCode.A))
         {
-            if (player_rb.velocity.x >= -7f)
-                player_rb.velocity -= new Vector2(0.25f, 0);
+            if (!Physics2D.Raycast(boxLeft, -Vector2.right, 0.1f)  &&  !isHooked)
+            {
+                if (player_rb.velocity.x >= -7f)
+                    player_rb.velocity -= new Vector2(0.25f, 0);
 
-            isMoving = true;
-            GetComponent<SpriteRenderer>().flipX = true;
+                isMoving = true;
+                GetComponent<SpriteRenderer>().flipX = true;
+            }
+            else if (isHooked)
+            {
+                if (player_rb.velocity.x >= -7f)
+                    player_rb.velocity -= new Vector2(0.25f, 0);
+
+                isMoving = true;
+                GetComponent<SpriteRenderer>().flipX = true;
+            }
         }
-        else
+        else 
         {
-            isMoving = false ;
+            isMoving = false;
         }
-        if (Input.GetButton("Jump") && !isJumping)
+        if (Input.GetKey(KeyCode.W) & !isJumping & !isFlying)
         {
-            player_rb.velocity = new Vector2(player_rb.velocity.x, jumpM);
-            isJumping = true;
+            if (!(Physics2D.Raycast(boxUp, Vector2.up, 0.1f) || Physics2D.Raycast(boxLeft, -Vector2.right, 0.1f) || Physics2D.Raycast(boxRight, Vector2.right, 0.1f)) & !isJumping)
+            {
+                player_rb.velocity = new Vector2(player_rb.velocity.x, jumpM);
+                isJumping = true;
+            }
         }
     }
+    //private void Movement()
+    //{
+    //    movementDirection = new Vector2(Input.GetAxis("Horizontal"), 0);
+    //    movementDirection.Normalize();
+
+    //    if (Input.GetKey(KeyCode.D))
+    //    {
+    //        if (player_rb.velocity.x <= 7f)
+    //            player_rb.velocity += new Vector2(0.25f, 0);
+
+    //        isMoving = true;
+    //        GetComponent<SpriteRenderer>().flipX = false;
+    //    }
+    //    else if (Input.GetKey(KeyCode.A))
+    //    {
+    //        if (player_rb.velocity.x >= -7f)
+    //            player_rb.velocity -= new Vector2(0.25f, 0);
+
+    //        isMoving = true;
+    //        GetComponent<SpriteRenderer>().flipX = true;
+    //    }
+    //    else
+    //    {
+    //        isMoving = false ;
+    //    }
+    //    if (Input.GetButton("Jump") && !isJumping)
+    //    {
+    //        player_rb.velocity = new Vector2(player_rb.velocity.x, jumpM);
+    //        isJumping = true;
+    //    }
+    //}
     private void Animate()
     {
+        if (timeOnGround > 0)
+            isOnGround = true;
+        else if (timeOnGround <= 0)
+            isOnGround = false;
+
         player_anim.SetBool("isFlying", isFlying);
         player_anim.SetBool("isGrapleShoot", isGrapleShoot);
         player_anim.SetBool("isMoving", isMoving);
+        player_anim.SetBool("isOnGround", isOnGround);
         player_anim.SetFloat("Blend_x", movementDirection.x);
         player_anim.SetFloat("Blend_y", movementDirection.y);
+    }
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (isJumping)
+            isJumping = false;
     }
     private void OnCollisionStay2D(Collision2D collision)
     {
@@ -93,8 +154,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (isFlying)
             isFlying = false;
-
-        if (timeOnGround >= 0.2f)
+        if (timeOnGround >= 3f)
             isJumping = false;
     }
     private void OnCollisionExit2D(Collision2D collision)

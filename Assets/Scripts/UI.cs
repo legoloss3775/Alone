@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public class UI : MonoBehaviour
 {
-    public HookSystem hookSystem;
+    public HookSystemV2 hookSystem;
     public PlayerMovement playerMovement;
 
     public Slider staminaBar;
@@ -16,7 +16,7 @@ public class UI : MonoBehaviour
     {
         player = GameObject.Find("Player");
 
-        hookSystem = player.GetComponent<HookSystem>();
+        hookSystem = player.GetComponent<HookSystemV2>();
         playerMovement = player.GetComponent<PlayerMovement>();
 
         SetUI();
@@ -29,6 +29,15 @@ public class UI : MonoBehaviour
     private void UpdateUI()
     {
         staminaBar.value = hookSystem.gasStamina;
+
+        staminaBar.transform.position = player.transform.position + new Vector3(0, 1);
+
+        if (playerMovement.isHooked)
+            staminaBar.gameObject.SetActive(true);
+        else if (hookSystem.gasStamina < 3f)
+            staminaBar.gameObject.SetActive(true);
+        else
+            staminaBar.gameObject.SetActive(false);
     }
     private void SetUI()
     {

@@ -20,6 +20,9 @@ public class HookSystem : MonoBehaviour
     private Rigidbody2D[] hookRb = new Rigidbody2D[25];
     private List<ParticleSystem> deleteParticles = new List<ParticleSystem>();
 
+    private Ray2D hookRay;
+    private Ray2D shootRay;
+
     private ParticleSystem playParticles;
     private PolygonCollider2D playerCol;
     private GameObject graple;
@@ -55,22 +58,19 @@ public class HookSystem : MonoBehaviour
     private void Update()
     {
         ShowCrosshair();
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButtonDown(0))
         {
-            ShootGraple();
-            if (Input.GetMouseButtonDown(0))
+            hookIsShooted = true;
+            shootRay.origin = transform.position;
+            shootRay.direction = crossHair.transform.position - transform.position;
+            ShowHook();
+            //ShootGraple();
+            if (Input.GetMouseButton(0))
             {
-                hookIsShooted = true;
-                ShowHook();
                 ShootGraple();
             }
-            if (Input.GetMouseButton(1))
-            {
-                //if (hookIsConnected)
-                    //ReturnPlayerToHookPosition();
-            }
         }
-        else
+        else if (!Input.GetMouseButton(0))
         {
             hookIsShooted = false;
             DisattachHook();
@@ -106,7 +106,7 @@ public class HookSystem : MonoBehaviour
         for (int i = 0; i < 25; i++)
         {
             hookRb[i].velocity = Vector2.zero;
-            hookRb[i].mass = 5;
+            hookRb[i].mass = 1;
             hookRb[i].velocity -= Vector2.Lerp(
                 hookRb[i].transform.position,
                 hookRb[i].transform.position - transform.position,
@@ -135,14 +135,14 @@ public class HookSystem : MonoBehaviour
     }
     private void ShootGraple()
     {
-        graple.GetComponent<BoxCollider2D>().isTrigger = false;
+        //graple.GetComponent<BoxCollider2D>().isTrigger = false;
         if (hookIsShooted)
         {
             time += Time.deltaTime;
             if (time <= 0.5f)
                 grapleRb.velocity = Vector2.Lerp(
                     graple.transform.position,
-                    crossHair.transform.position - graple.transform.position,
+                    new Vector3(shootRay.GetPoint(12).x, shootRay.GetPoint(12).y) - graple.transform.position,
                     1
                 ) * hookSpeed;
         }
@@ -151,24 +151,45 @@ public class HookSystem : MonoBehaviour
             hookIsShooted = false;
             time = 0;
         }
+        hookIsShooted = false;
     }
 
     private void ShowCrosshair()
     {
         Cursor.visible = false;
 
-        Vector2 mouseCursorPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        crossHair.transform.position = mouseCursorPos;
+        var worldMousePosition =
+                Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 0f));
+        var facingDirection = worldMousePosition - transform.position;
+        var aimAngle = Mathf.Atan2(facingDirection.y, facingDirection.x);
+        if (aimAngle < 0f)
+        {
+            aimAngle = Mathf.PI * 2 + aimAngle;
+        }
+        var aimDirection = Quaternion.Euler(0, 0, aimAngle * Mathf.Rad2Deg) * Vector2.right;
+
+        var x = transform.position.x + 2f * Mathf.Cos(aimAngle);
+        var y = transform.position.y + 2f * Mathf.Sin(aimAngle);
+
+        var crossHairPosition = new Vector3(x, y, 0);
+        crossHair.transform.position = crossHairPosition;
+
+        facingDirection.Normalize();
+
+        float rot_z = Mathf.Atan2(facingDirection.y, facingDirection.x) * Mathf.Rad2Deg;
+        crossHair.transform.rotation = Quaternion.Euler(0f, 0f, rot_z - 90);
     }
     private void MovePlayerToIndicatorPostion()
     {
+        Vector3 directionPos = new Vector3(hookRay.GetPoint(12).x, hookRay.GetPoint(12).y);
+
         if (gasStamina >= 0 && movement.isHooked)
         {
             playerRb.velocity = Vector2.Lerp(
                 playerRb.transform.position,
-                crossHair.transform.position - playerRb.transform.position,
+                directionPos - playerRb.transform.position,
                 1
-                ) * 2f;
+                ) * 1.25f;
             PlayParticles(1);
 
             gasStamina -= Time.deltaTime;
@@ -178,9 +199,9 @@ public class HookSystem : MonoBehaviour
         {
             playerRb.velocity = Vector2.Lerp(
                 playerRb.transform.position,
-                crossHair.transform.position - playerRb.transform.position,
+                directionPos - playerRb.transform.position,
                 1
-                );
+                )/1.5f;
             PlayParticles(1);
 
             gasStamina -= Time.deltaTime * 3;
@@ -222,6 +243,8 @@ public class HookSystem : MonoBehaviour
     }
     private void CheckHookState()
     {
+        hookRay.origin = transform.position;
+        hookRay.direction = crossHair.transform.position - transform.position;
         movement.isGrapleShoot = hookIsShooted;
     }
     private void CheckGasStamina()
@@ -241,23 +264,32 @@ public class HookSystem : MonoBehaviour
         grapleJoint.enabled = false;
         hookIsConnected = false;
 
-        ChangePlayerMass(1000);
+        ChangePlayerMass(1000f);
         playerRb.rotation = 0;
         playerRb.freezeRotation = true;
         movement.isHooked = false;
 
         graple.GetComponent<BoxCollider2D>().enabled = true;
     }
-    public void AttachGraple(Collision2D collision)
+    public void AttachGraple(Rigidbody2D collision)
     {
         grapleJoint.enabled = true;
         grapleJoint.connectedBody = collision.gameObject.GetComponent<Rigidbody2D>();
 
-        ChangePlayerMass(5f);
+        ChangePlayerMass(25f);
         playerRb.freezeRotation = true;
         movement.isHooked = true;
         movement.isFlying = true;
 
         graple.GetComponent<BoxCollider2D>().enabled = false;
     }
+
+    private void OnDrawGizmos()
+    {
+        hookRay.origin = transform.position;
+        hookRay.direction = crossHair.transform.position - transform.position;
+        Gizmos.DrawLine(transform.position, new Vector3(hookRay.GetPoint(20).x, hookRay.GetPoint(20).y));
+    }
 }
+
+
