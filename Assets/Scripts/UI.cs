@@ -14,7 +14,7 @@ public class UI : MonoBehaviour
 
     private void Awake()
     {
-        player = GameObject.Find("Player");
+        player = transform.parent.gameObject;
 
         hookSystem = player.GetComponent<HookSystemV2>();
         playerMovement = player.GetComponent<PlayerMovement>();
